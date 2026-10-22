@@ -1,0 +1,8 @@
+projectData/
+.DS_Store
+*.log
+bin/
+build/
+results/
+.run/
+.idea/
