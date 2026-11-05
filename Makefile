@@ -1,6 +1,9 @@
 start arm-check flight-check route-check: build
 	@bash scripts/devstack.sh $@
 
+swarm-group-route-check: build
+	@DRONE_COUNT=3 bash scripts/devstack.sh group-route-check
+
 swarm-flight-check: build
 	@DRONE_COUNT=3 bash scripts/devstack.sh group-flight-check
 
@@ -31,7 +34,7 @@ test-race:
 
 lint:
 	golangci-lint run
-	@bash -n scripts/devstack.sh
+	@for script in scripts/devstack.sh scripts/devstack/*.sh; do bash -n "$$script" || exit; done
 
 fmt:
 	golangci-lint fmt

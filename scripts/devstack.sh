@@ -34,8 +34,8 @@ start_stack() {
 
 case "${1:-}" in
   start) start_stack ;;
-  arm-check|flight-check|route-check|group-flight-check) check="$1"; start_stack ;;
+  arm-check|flight-check|route-check|group-flight-check|group-route-check) check="$1"; start_stack ;;
   stop) stop_stack ;;
   status) show_status ;;
-  *) printf 'Использование: %s {start|arm-check|flight-check|route-check|group-flight-check|stop|status}\n' "$0" >&2; exit 2 ;;
+  *) printf 'Использование: %s {start|arm-check|flight-check|route-check|group-flight-check|group-route-check|stop|status}\n' "$0" >&2; exit 2 ;;
 esac

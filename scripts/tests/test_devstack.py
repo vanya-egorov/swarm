@@ -22,7 +22,7 @@ else:
 if os.environ.get("FAIL_INSTANCE") in args:
     time.sleep(0.2)
     sys.exit(1)
-if "-sitl-group-flight-check" in args:
+if "-sitl-group-flight-check" in args or "-sitl-group-route-check" in args:
     time.sleep(0.5)
     sys.exit(0)
 if "-sitl-arm-check" in args:
@@ -130,6 +130,23 @@ class DevstackTest(unittest.TestCase):
         rows = self.snapshot_children()
         self.assertEqual(len({r["monitor"] for r in rows}), 1)
         self.assert_stopped(process, 0)
+
+    def test_group_route_uses_one_shared_controller(self):
+        self.env["ARM_CHECK_PARAMS"] = self.env["SITL_PARAMS"]
+        process = self.start("group-route-check", children=4)
+        rows = self.snapshot_children()
+        self.assertEqual(len({r["monitor"] for r in rows}), 1)
+        self.assert_stopped(process, 0)
+        calls = (self.root / "calls").read_text()
+        self.assertEqual(calls.count("-sitl-group-route-check"), 1)
+
+    def test_group_route_rejects_partial_group(self):
+        for overrides in ({"DRONE_COUNT": "1"}, {"CHECK_INSTANCE": "1"}):
+            with self.subTest(overrides=overrides):
+                result = subprocess.run(["bash", str(PROJECT / "scripts/devstack.sh"), "group-route-check"],
+                                        env=dict(self.env, **overrides), capture_output=True, timeout=5)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((self.root / "calls").exists())
 
     def test_child_failure_stops_entire_stack(self):
         self.env["FAIL_INSTANCE"] = "-I1"

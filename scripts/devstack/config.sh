@@ -21,7 +21,7 @@ monitor_pids=()
 check=""
 
 validate_stack() {
-  if [[ "$check" == group-flight-check && ( "$DRONE_COUNT" != 3 || "$CHECK_INSTANCE" != all ) ]]; then
+  if [[ ( "$check" == group-flight-check || "$check" == group-route-check ) && ( "$DRONE_COUNT" != 3 || "$CHECK_INSTANCE" != all ) ]]; then
     printf 'Групповой полёт требует три SITL и CHECK_INSTANCE=all.\n' >&2
     return 1
   fi

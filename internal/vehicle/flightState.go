@@ -11,6 +11,9 @@ import (
 func flightCheckCommand(ctx context.Context, timeout time.Duration, send func(context.Context) error) error {
 	commandCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if err := commandCtx.Err(); err != nil {
+		return context.Cause(commandCtx)
+	}
 	return send(commandCtx)
 }
 

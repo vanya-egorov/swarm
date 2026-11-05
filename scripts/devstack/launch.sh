@@ -18,7 +18,7 @@ launch_instances() {
       monitor_args+=("-sitl-${check}")
       monitor_checks[$instance]=true
     fi
-    if [[ "$check" == group-flight-check && "$instance" != 0 ]]; then
+    if [[ ( "$check" == group-flight-check || "$check" == group-route-check ) && "$instance" != 0 ]]; then
       monitor_pids+=("${monitor_pids[0]}")
     else
       "$run_dir/bin/swarm" "${monitor_args[@]}" > "$run_dir/logs/swarm${log_suffix}.log" 2>&1 &

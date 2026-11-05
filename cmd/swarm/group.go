@@ -20,6 +20,7 @@ func runGroupCheck(
 	systemID int,
 	timeout time.Duration,
 	logger *slog.Logger,
+	route bool,
 ) error {
 	host, portText, err := net.SplitHostPort(address)
 	if err != nil {
@@ -30,6 +31,7 @@ func runGroupCheck(
 		return errors.New("invalid group IDs or ports")
 	}
 	members := make([]vehicle.FlightMember, 0, 3)
+	routeMembers := make([]vehicle.RouteMember, 0, 3)
 	monitors := make([]*vehicle.Monitor, 0, 3)
 	for i := range 3 {
 		source, err := mavlink.NewTelemetrySource(
@@ -50,6 +52,7 @@ func runGroupCheck(
 			return err
 		}
 		members = append(members, vehicle.FlightMember{Flight: controller, Arming: controller, States: monitor})
+		routeMembers = append(routeMembers, vehicle.RouteMember{FlightMember: members[i], Positions: controller})
 		monitors = append(monitors, monitor)
 	}
 	scenarioCtx, cancelScenario := context.WithCancelCause(ctx)
@@ -66,11 +69,18 @@ func runGroupCheck(
 			readersDone <- err
 		}()
 	}
-	config := vehicle.DefaultFlightCheckConfig()
-	config.HoldDuration = 8 * time.Second
-	config.MaxDistanceM = 2
-	logger.Info("group flight check", "vehicles", 3, "minSeparationM", 4, "targetAltitudeM", config.TargetAltitudeM)
-	result := vehicle.RunGroupFlightCheck(scenarioCtx, members, logger, config, 4)
+	var result error
+	if route {
+		config := vehicle.DefaultGroupRouteConfig()
+		logger.Info("group route check", "vehicles", len(members), "minSeparationM", 4, "config", config)
+		result = vehicle.RunGroupRouteCheck(scenarioCtx, routeMembers, logger, config, 4)
+	} else {
+		config := vehicle.DefaultFlightCheckConfig()
+		config.HoldDuration = 8 * time.Second
+		config.MaxDistanceM = 2
+		logger.Info("group flight check", "vehicles", len(members), "minSeparationM", 4, "targetAltitudeM", config.TargetAltitudeM)
+		result = vehicle.RunGroupFlightCheck(scenarioCtx, members, logger, config, 4)
+	}
 	cancelReading()
 	for range monitors {
 		result = errors.Join(result, <-readersDone)

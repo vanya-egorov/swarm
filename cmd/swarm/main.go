@@ -38,6 +38,11 @@ func run(ctx context.Context, args []string, logger *slog.Logger) error {
 	flightCheck := flags.Bool("sitl-flight-check", false, "взлёт и посадка в SITL")
 	routeCheck := flags.Bool("sitl-route-check", false, "взлёт, квадрат 2×2 м и посадка в SITL")
 	groupCheck := flags.Bool("sitl-group-flight-check", false, "совместный взлёт и посадка трёх SITL")
+	groupRoute := flags.Bool(
+		"sitl-group-route-check",
+		false,
+		"совместный квадрат трёх SITL с ожиданием всех участников",
+	)
 	timeout := flags.Duration("heartbeat-timeout", 10*time.Second, "тайм-аут heartbeat")
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("flags: %w", err)
@@ -50,7 +55,7 @@ func run(ctx context.Context, args []string, logger *slog.Logger) error {
 	}
 
 	checks := 0
-	for _, enabled := range []bool{*armCheck, *flightCheck, *routeCheck, *groupCheck} {
+	for _, enabled := range []bool{*armCheck, *flightCheck, *routeCheck, *groupCheck, *groupRoute} {
 		if enabled {
 			checks++
 		}
@@ -65,8 +70,8 @@ func run(ctx context.Context, args []string, logger *slog.Logger) error {
 		}
 	}
 
-	if *groupCheck {
-		return runGroupCheck(ctx, *listenAddress, *systemID, *timeout, logger)
+	if *groupCheck || *groupRoute {
+		return runGroupCheck(ctx, *listenAddress, *systemID, *timeout, logger, *groupRoute)
 	}
 
 	source, err := mavlink.NewTelemetrySource(*listenAddress, uint8(*systemID), logger)

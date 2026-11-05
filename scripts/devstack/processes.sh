@@ -26,7 +26,7 @@ cleanup() {
     kill -TERM "$monitor_pid" 2>/dev/null || true
     local attempt
     local max_attempts=200
-    if [[ "$check" == flight-check || "$check" == route-check || "$check" == group-flight-check ]]; then max_attempts=900; fi
+    if [[ "$check" == flight-check || "$check" == route-check || ( "$check" == group-flight-check || "$check" == group-route-check ) ]]; then max_attempts=900; fi
     for ((attempt=0; attempt<max_attempts; attempt++)); do
       kill -0 "$monitor_pid" 2>/dev/null || break
       sleep 0.1
