@@ -1,7 +1,42 @@
-start:
+start arm-check flight-check route-check: build
+	@bash scripts/devstack.sh $@
+
+swarm-flight-check: build
+	@DRONE_COUNT=3 bash scripts/devstack.sh group-flight-check
+
+swarm-route-check: build
+	@DRONE_COUNT=3 CHECK_INSTANCE=0 bash scripts/devstack.sh route-check
+
+swarm-arm-check: build
+	@DRONE_COUNT=3 bash scripts/devstack.sh arm-check
+
+swarm-start: build
+	@DRONE_COUNT=3 bash scripts/devstack.sh start
+
+swarm-world:
+	@python3 scripts/prepare_world.py
+
+stop status:
+	@bash scripts/devstack.sh $@
+
+build:
 	@mkdir -p projectData/run/bin
 	@go build -o projectData/run/bin/swarm ./cmd/swarm
-	@bash scripts/devstack.sh start
 
-stop:
-	@bash scripts/devstack.sh stop
+test:
+	go test ./...
+
+test-race:
+	go test -race ./...
+
+lint:
+	golangci-lint run
+	@bash -n scripts/devstack.sh
+
+fmt:
+	golangci-lint fmt
+
+test-stack:
+	python3 -m unittest discover -s scripts/tests -v
+
+check: lint test-race test-stack

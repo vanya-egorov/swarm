@@ -3,7 +3,6 @@ package vehicle
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"reflect"
 	"testing"
@@ -75,15 +74,31 @@ func TestArmCheckCases(t *testing.T) {
 					pwm = 1100
 				}
 				return State{SystemID: 1, ComponentID: 1, Armed: armed, Mode: mode, LastHeartbeat: now,
-					Position:     &Position{SystemID: 1, ComponentID: 1, RelativeAltitudeM: test.altitude, ReceivedAt: now},
-					ServoOutputs: &ServoOutputs{SystemID: 1, ComponentID: 1, PWMUS: [16]uint16{pwm, pwm, pwm, pwm}, ReceivedAt: now}}
+					Position: &Position{
+						SystemID:          1,
+						ComponentID:       1,
+						RelativeAltitudeM: test.altitude,
+						ReceivedAt:        now,
+					},
+					ServoOutputs: &ServoOutputs{
+						SystemID:    1,
+						ComponentID: 1,
+						PWMUS:       [16]uint16{pwm, pwm, pwm, pwm},
+						ReceivedAt:  now,
+					}}
 			})
-			config := ArmCheckConfig{ReadyTimeout: time.Second, CommandTimeout: time.Second, ObservationTimeout: 60 * time.Millisecond, HeartbeatMaxAge: time.Second}
-			err := RunArmCheck(ctx, controller, states, slog.New(slog.NewTextHandler(io.Discard, nil)), config)
+			config := ArmCheckConfig{
+				ReadyTimeout:       time.Second,
+				CommandTimeout:     time.Second,
+				ObservationTimeout: 60 * time.Millisecond,
+				HeartbeatMaxAge:    time.Second,
+			}
+			err := RunArmCheck(ctx, controller, states, slog.New(slog.DiscardHandler), config)
 			if (test.wantErr != nil || test.wantFailure) != (err != nil) {
 				t.Fatalf("RunArmCheck() = %v", err)
 			}
-			if (test.armErr != nil || test.cleanupErr != nil || test.cancelOnArm || test.unchangedPWM) && !errors.Is(err, test.wantErr) {
+			if (test.armErr != nil || test.cleanupErr != nil || test.cancelOnArm || test.unchangedPWM) &&
+				!errors.Is(err, test.wantErr) {
 				t.Fatalf("RunArmCheck() = %v, want %v", err, test.wantErr)
 			}
 			if !reflect.DeepEqual(calls, test.wantCalls) {
@@ -97,8 +112,16 @@ func TestArmCheckTelemetry(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	controller := armingControllerFunc(func(context.Context, bool) error { t.Fatal("command without telemetry"); return nil })
-	err := RunArmCheck(ctx, controller, stateReaderFunc(func() State { return State{} }), slog.Default(), DefaultArmCheckConfig())
+	controller := armingControllerFunc(
+		func(context.Context, bool) error { t.Fatal("command without telemetry"); return nil },
+	)
+	err := RunArmCheck(
+		ctx,
+		controller,
+		stateReaderFunc(func() State { return State{} }),
+		slog.Default(),
+		DefaultArmCheckConfig(),
+	)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("RunArmCheck() = %v", err)
 	}
@@ -119,10 +142,21 @@ func TestArmCheckGroundChange(t *testing.T) {
 			altitude = 1
 		}
 		return State{SystemID: 1, ComponentID: 1, Mode: ModeStabilize, LastHeartbeat: now,
-			Position:     &Position{SystemID: 1, ComponentID: 1, RelativeAltitudeM: altitude, ReceivedAt: now},
-			ServoOutputs: &ServoOutputs{SystemID: 1, ComponentID: 1, PWMUS: [16]uint16{1000, 1000, 1000, 1000}, ReceivedAt: now}}
+			Position: &Position{SystemID: 1, ComponentID: 1, RelativeAltitudeM: altitude, ReceivedAt: now},
+			ServoOutputs: &ServoOutputs{
+				SystemID:    1,
+				ComponentID: 1,
+				PWMUS:       [16]uint16{1000, 1000, 1000, 1000},
+				ReceivedAt:  now,
+			}}
 	})
-	config := ArmCheckConfig{ReadyTimeout: time.Second, StabilizationDuration: 80 * time.Millisecond, CommandTimeout: time.Second, ObservationTimeout: time.Second, HeartbeatMaxAge: time.Second}
+	config := ArmCheckConfig{
+		ReadyTimeout:          time.Second,
+		StabilizationDuration: 80 * time.Millisecond,
+		CommandTimeout:        time.Second,
+		ObservationTimeout:    time.Second,
+		HeartbeatMaxAge:       time.Second,
+	}
 	if err := RunArmCheck(context.Background(), controller, states, slog.Default(), config); err == nil {
 		t.Fatal("ground state change was ignored")
 	}

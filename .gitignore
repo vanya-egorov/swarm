@@ -6,3 +6,4 @@ build/
 results/
 .run/
 .idea/
+__pycache__/

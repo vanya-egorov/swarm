@@ -3,7 +3,6 @@ package mavlink
 import (
 	"bufio"
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"testing"
@@ -19,7 +18,19 @@ import (
 )
 
 // newServoTestLink создаёт локальный UDP-канал для теста.
-func newServoTestLink(t *testing.T, version streamwriter.Version) (*TelemetrySource, *streamwriter.Writer, *frame.Reader) {
+func newServoTestLink(
+	t *testing.T,
+	version streamwriter.Version,
+) (*TelemetrySource, *streamwriter.Writer, *frame.Reader) {
+	t.Helper()
+	return newSystemTestLink(t, version, 42)
+}
+
+func newSystemTestLink(
+	t *testing.T,
+	version streamwriter.Version,
+	systemID uint8,
+) (*TelemetrySource, *streamwriter.Writer, *frame.Reader) {
 	t.Helper()
 	port, err := net.ListenPacket("udp4", "127.0.0.1:0")
 	if err != nil {
@@ -29,7 +40,7 @@ func newServoTestLink(t *testing.T, version streamwriter.Version) (*TelemetrySou
 	if err := port.Close(); err != nil {
 		t.Fatal(err)
 	}
-	source, err := NewTelemetrySource(address, 42, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	source, err := NewTelemetrySource(address, systemID, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +61,7 @@ func newServoTestLink(t *testing.T, version streamwriter.Version) (*TelemetrySou
 	if err := frameWriter.Initialize(); err != nil {
 		t.Fatal(err)
 	}
-	writer := &streamwriter.Writer{FrameWriter: frameWriter, Version: version, SystemID: 42, ComponentID: 1}
+	writer := &streamwriter.Writer{FrameWriter: frameWriter, Version: version, SystemID: systemID, ComponentID: 1}
 	if err := writer.Initialize(); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +119,9 @@ func TestServoFiltering(t *testing.T) {
 				t.Fatalf("read stream request for component %d: %v", componentID, err)
 			}
 			request, ok := packet.GetMessage().(*ardupilotmega.MessageRequestDataStream)
-			if !ok || request.TargetSystem != 42 || request.TargetComponent != componentID || request.ReqMessageRate != 2 || request.StartStop != 1 {
+			if !ok || request.TargetSystem != 42 || request.TargetComponent != componentID ||
+				request.ReqMessageRate != 2 ||
+				request.StartStop != 1 {
 				t.Fatalf("unexpected stream request: %+v", packet.GetMessage())
 			}
 			requested[request.ReqStreamId] = true
@@ -124,7 +137,9 @@ func TestServoFiltering(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, ok := event.(vehicle.ServoOutputs)
-		if !ok || got.SystemID != 42 || got.ComponentID != componentID || got.Port != 1 || got.PWMUS[0] != 1234 || got.PWMUS[15] != 1678 || got.ReceivedAt.IsZero() {
+		if !ok || got.SystemID != 42 || got.ComponentID != componentID || got.Port != 1 || got.PWMUS[0] != 1234 ||
+			got.PWMUS[15] != 1678 ||
+			got.ReceivedAt.IsZero() {
 			t.Fatalf("unexpected servo outputs after filtering: %+v", event)
 		}
 	}

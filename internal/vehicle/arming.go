@@ -17,6 +17,7 @@ type FlightController interface {
 	Land(context.Context) error
 }
 
+// Ошибки выполнения команд автопилота.
 var (
 	ErrCommandBusy        = errors.New("command busy")
 	ErrCommandRejected    = errors.New("command rejected")

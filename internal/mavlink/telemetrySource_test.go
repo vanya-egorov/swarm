@@ -145,10 +145,12 @@ func TestTelemetrySource(t *testing.T) {
 			if !ok {
 				continue
 			}
-			if request.TargetSystem != 42 || request.TargetComponent != 1 || request.ReqMessageRate != 2 || request.StartStop != 1 {
+			if request.TargetSystem != 42 || request.TargetComponent != 1 || request.ReqMessageRate != 2 ||
+				request.StartStop != 1 {
 				t.Fatalf("unexpected telemetry stream request: %+v", request)
 			}
-			if request.ReqStreamId != ardupilotmega.MAV_DATA_STREAM_POSITION && request.ReqStreamId != ardupilotmega.MAV_DATA_STREAM_RC_CHANNELS {
+			if request.ReqStreamId != ardupilotmega.MAV_DATA_STREAM_POSITION &&
+				request.ReqStreamId != ardupilotmega.MAV_DATA_STREAM_RC_CHANNELS {
 				t.Fatalf("unexpected stream ID: %v", request.ReqStreamId)
 			}
 			requested[request.ReqStreamId] = true
@@ -164,8 +166,26 @@ func TestTelemetrySource(t *testing.T) {
 			t.Fatal(err)
 		}
 		if outputs, ok := event.(vehicle.ServoOutputs); ok {
-			wantPWM := [16]uint16{1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 1101, 1201, 1301, 1401, 1501, 1601}
-			if outputs.SystemID != 42 || outputs.ComponentID != 1 || outputs.Port != 0 || outputs.PWMUS != wantPWM || outputs.ReceivedAt.IsZero() {
+			wantPWM := [16]uint16{
+				1100,
+				1200,
+				1300,
+				1400,
+				1500,
+				1600,
+				1700,
+				1800,
+				1900,
+				2000,
+				1101,
+				1201,
+				1301,
+				1401,
+				1501,
+				1601,
+			}
+			if outputs.SystemID != 42 || outputs.ComponentID != 1 || outputs.Port != 0 || outputs.PWMUS != wantPWM ||
+				outputs.ReceivedAt.IsZero() {
 				t.Fatalf("unexpected servo outputs: %+v", outputs)
 			}
 			servoSeen = true
@@ -175,14 +195,19 @@ func TestTelemetrySource(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if position.SystemID != 42 || position.ComponentID != 1 || position.LatitudeDeg != 55.75 || position.LongitudeDeg != 37.62 {
+		if position.SystemID != 42 || position.ComponentID != 1 || position.LatitudeDeg != 55.75 ||
+			position.LongitudeDeg != 37.62 {
 			t.Fatalf("unexpected position coordinates: %+v", position)
 		}
 		if position.HeadingValid {
-			if position.AltitudeMSLM != 180.5 || position.RelativeAltitudeM != 12.5 || position.NorthVelocityMS != 2.5 || position.EastVelocityMS != -0.75 || position.DownVelocityMS != 0.1 {
+			if position.AltitudeMSLM != 180.5 || position.RelativeAltitudeM != 12.5 ||
+				position.NorthVelocityMS != 2.5 ||
+				position.EastVelocityMS != -0.75 ||
+				position.DownVelocityMS != 0.1 {
 				t.Fatalf("unexpected position units: %+v", position)
 			}
-			if position.HeadingDeg != 123.45 || position.BootTime != 1200*time.Millisecond || position.ReceivedAt.IsZero() {
+			if position.HeadingDeg != 123.45 || position.BootTime != 1200*time.Millisecond ||
+				position.ReceivedAt.IsZero() {
 				t.Fatalf("unexpected position metadata: %+v", position)
 			}
 			knownHeading = true

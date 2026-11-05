@@ -66,7 +66,8 @@ func (s *TelemetrySource) heartbeat(frame *gomavlib.EventFrame, msg *ardupilotme
 		Mode:        vehicle.ModeUnknown,
 		ReceivedAt:  time.Now().UTC(),
 	}
-	if msg.Type == ardupilotmega.MAV_TYPE_QUADROTOR && msg.BaseMode&ardupilotmega.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED != 0 {
+	if msg.Type == ardupilotmega.MAV_TYPE_QUADROTOR &&
+		msg.BaseMode&ardupilotmega.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED != 0 {
 		switch msg.CustomMode {
 		case uint32(ardupilotmega.COPTER_MODE_STABILIZE):
 			heartbeat.Mode = vehicle.ModeStabilize

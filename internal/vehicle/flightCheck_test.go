@@ -3,7 +3,6 @@ package vehicle
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"reflect"
 	"testing"
@@ -23,8 +22,13 @@ type flightCheckFake struct {
 func (f *flightCheckFake) Snapshot() State {
 	now := time.Now()
 	return State{SystemID: 1, ComponentID: 1, Armed: f.armed, Mode: f.mode, LastHeartbeat: now,
-		Position:     &Position{SystemID: 1, ComponentID: 1, RelativeAltitudeM: f.altitude, ReceivedAt: now},
-		ServoOutputs: &ServoOutputs{SystemID: 1, ComponentID: 1, PWMUS: [16]uint16{1000, 1000, 1000, 1000}, ReceivedAt: now}}
+		Position: &Position{SystemID: 1, ComponentID: 1, RelativeAltitudeM: f.altitude, ReceivedAt: now},
+		ServoOutputs: &ServoOutputs{
+			SystemID:    1,
+			ComponentID: 1,
+			PWMUS:       [16]uint16{1000, 1000, 1000, 1000},
+			ReceivedAt:  now,
+		}}
 }
 
 // SetMode имитирует подтверждённое переключение в GUIDED.
@@ -71,7 +75,7 @@ func TestFlightCheckCases(t *testing.T) {
 		HoldDuration: 20 * time.Millisecond, LandingTimeout: time.Second, TelemetryMaxAge: time.Second,
 		TargetAltitudeM: 1.5, MaxAltitudeM: 2.5, MaxDistanceM: 5,
 	}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	for _, test := range []struct {
 		name       string
 		takeoffErr error

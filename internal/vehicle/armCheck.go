@@ -32,7 +32,9 @@ func DefaultArmCheckConfig() ArmCheckConfig {
 
 // validate проверяет временные ограничения наземного сценария.
 func (c ArmCheckConfig) validate() error {
-	if c.ReadyTimeout <= 0 || c.StabilizationDuration < 0 || c.CommandTimeout <= 0 || c.ObservationTimeout <= 0 || c.HeartbeatMaxAge <= 0 || c.HoldDuration < 0 {
+	if c.ReadyTimeout <= 0 || c.StabilizationDuration < 0 || c.CommandTimeout <= 0 || c.ObservationTimeout <= 0 ||
+		c.HeartbeatMaxAge <= 0 ||
+		c.HoldDuration < 0 {
 		return errors.New("invalid arm timing")
 	}
 	return nil
@@ -40,7 +42,13 @@ func (c ArmCheckConfig) validate() error {
 
 // RunArmCheck проверяет цикл disarmed → armed → disarmed и изменение PWM без взлёта.
 // RunArmCheck всегда пытается разоружить дрон после arm.
-func RunArmCheck(ctx context.Context, controller ArmingController, states StateReader, logger *slog.Logger, config ArmCheckConfig) (resultErr error) {
+func RunArmCheck(
+	ctx context.Context,
+	controller ArmingController,
+	states StateReader,
+	logger *slog.Logger,
+	config ArmCheckConfig,
+) (resultErr error) {
 	if controller == nil || states == nil || logger == nil {
 		return fmt.Errorf("arm check: missing dependency")
 	}
@@ -48,20 +56,32 @@ func RunArmCheck(ctx context.Context, controller ArmingController, states StateR
 		return fmt.Errorf("arm check: %w", err)
 	}
 	readyCtx, cancelReady := context.WithTimeout(ctx, config.ReadyTimeout)
-	before, err := waitForState(readyCtx, states, func(state State) bool { return freshState(state, config.HeartbeatMaxAge) })
+	before, err := waitForState(
+		readyCtx,
+		states,
+		func(state State) bool { return freshState(state, config.HeartbeatMaxAge) },
+	)
 	cancelReady()
 	if err != nil {
 		return fmt.Errorf("telemetry: %w", err)
 	}
 	if before.Armed || before.Mode != ModeStabilize || !onGround(before.Position) {
-		return fmt.Errorf("ground state required: armed=%t mode=%s altitude=%.2f m", before.Armed, before.Mode, before.Position.RelativeAltitudeM)
+		return fmt.Errorf(
+			"ground state required: armed=%t mode=%s altitude=%.2f m",
+			before.Armed,
+			before.Mode,
+			before.Position.RelativeAltitudeM,
+		)
 	}
 	if err := observeStableGround(ctx, states, before, config.StabilizationDuration, config.HeartbeatMaxAge); err != nil {
 		return fmt.Errorf("stabilization: %w", err)
 	}
 	logger.Info("arm baseline", "systemId", before.SystemID, "pwmUs1To4", before.ServoOutputs.PWMUS[:4])
 	defer func() {
-		cleanupCtx, cancelCleanup := context.WithTimeout(context.Background(), config.CommandTimeout+config.ObservationTimeout)
+		cleanupCtx, cancelCleanup := context.WithTimeout(
+			context.Background(),
+			config.CommandTimeout+config.ObservationTimeout,
+		)
 		defer cancelCleanup()
 		disarmedAt := time.Now()
 		if err := controller.SetArmed(cleanupCtx, false); err != nil {
@@ -73,7 +93,8 @@ func RunArmCheck(ctx context.Context, controller ArmingController, states StateR
 			return
 		}
 		after, err := waitForState(cleanupCtx, states, func(state State) bool {
-			if !freshState(state, config.HeartbeatMaxAge) || state.Armed || !sameVehicle(before, state) || !state.ServoOutputs.ReceivedAt.After(disarmedAt) {
+			if !freshState(state, config.HeartbeatMaxAge) || state.Armed || !sameVehicle(before, state) ||
+				!state.ServoOutputs.ReceivedAt.After(disarmedAt) {
 				return false
 			}
 			for i := range 4 {
@@ -98,7 +119,9 @@ func RunArmCheck(ctx context.Context, controller ArmingController, states StateR
 	armedAt := time.Now()
 	observeCtx, cancelObserve := context.WithTimeout(ctx, config.ObservationTimeout)
 	armed, err := waitForState(observeCtx, states, func(state State) bool {
-		if !freshState(state, config.HeartbeatMaxAge) || !state.Armed || state.Mode != ModeStabilize || !sameVehicle(before, state) || !state.ServoOutputs.ReceivedAt.After(armedAt) {
+		if !freshState(state, config.HeartbeatMaxAge) || !state.Armed || state.Mode != ModeStabilize ||
+			!sameVehicle(before, state) ||
+			!state.ServoOutputs.ReceivedAt.After(armedAt) {
 			return false
 		}
 		for i := range 4 {
@@ -125,7 +148,9 @@ func RunArmCheck(ctx context.Context, controller ArmingController, states StateR
 			return nil
 		case <-ticker.C:
 			state := states.Snapshot()
-			if !freshState(state, config.HeartbeatMaxAge) || !sameVehicle(before, state) || !state.Armed || state.Mode != ModeStabilize || !onGround(state.Position) {
+			if !freshState(state, config.HeartbeatMaxAge) || !sameVehicle(before, state) || !state.Armed ||
+				state.Mode != ModeStabilize ||
+				!onGround(state.Position) {
 				return fmt.Errorf("armed state lost")
 			}
 		}

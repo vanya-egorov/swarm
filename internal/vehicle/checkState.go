@@ -18,7 +18,8 @@ func observeStableGround(ctx context.Context, states StateReader, before State, 
 	defer ticker.Stop()
 	for {
 		state := states.Snapshot()
-		if !freshState(state, maxAge) || !sameVehicle(before, state) || state.Armed || state.Mode != ModeStabilize || !onGround(state.Position) {
+		if !freshState(state, maxAge) || !sameVehicle(before, state) || state.Armed || state.Mode != ModeStabilize ||
+			!onGround(state.Position) {
 			return errors.New("ground state lost")
 		}
 		select {
@@ -53,7 +54,7 @@ func waitForState(ctx context.Context, states StateReader, matches func(State) b
 
 // freshState проверяет возраст и принадлежность heartbeat, позиции и PWM.
 func freshState(state State, maxAge time.Duration) bool {
-	if state.Position == nil || state.ServoOutputs == nil || state.ServoOutputs.Port != 0 {
+	if !validPosition(state.Position) || state.ServoOutputs == nil || state.ServoOutputs.Port != 0 {
 		return false
 	}
 	if state.SystemID == 0 || state.ComponentID == 0 {
@@ -82,7 +83,9 @@ func onGround(position *Position) bool {
 // grounded проверяет высоту и скорость для выбранного наземного порога.
 func grounded(position *Position, maxAltitude float64) bool {
 	return position != nil && math.Abs(position.RelativeAltitudeM) < maxAltitude &&
-		math.Abs(position.NorthVelocityMS) < 0.2 && math.Abs(position.EastVelocityMS) < 0.2 && math.Abs(position.DownVelocityMS) < 0.2
+		math.Abs(
+			position.NorthVelocityMS,
+		) < 0.2 && math.Abs(position.EastVelocityMS) < 0.2 && math.Abs(position.DownVelocityMS) < 0.2
 }
 
 // sameVehicle проверяет системный и компонентный идентификаторы аппарата.

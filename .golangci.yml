@@ -1,0 +1,40 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: standard
+  enable:
+    - asciicheck
+    - bidichk
+    - copyloopvar
+    - dogsled
+    - dupword
+    - durationcheck
+    - errorlint
+    - fatcontext
+    - gocritic
+    - godot
+    - misspell
+    - nilerr
+    - nolintlint
+    - predeclared
+    - revive
+    - sloglint
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+  settings:
+    sloglint:
+      kv-only: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - golines
+  settings:
+    golines:
+      max-len: 120

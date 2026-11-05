@@ -7,19 +7,20 @@ ATC_ANG_YAW_P    0.5
 
 ATC_RAT_PIT_P    0.05
 ATC_RAT_RLL_P    0.05
-ATC_RAT_YAW_P    0.02 
+ATC_RAT_YAW_P    0.02
 
 ATC_RAT_PIT_I    0.05
 ATC_RAT_RLL_I    0.05
 
 ATC_RAT_PIT_D    0.0003
-ATC_RAT_RLL_D    0.0003  
+ATC_RAT_RLL_D    0.0003
 ATC_RAT_YAW_D    0.000001
 
 AHRS_EKF_TYPE    10         # Use sim AHRS
 ARMING_SKIPCHK   64         # No RC requirements
 MOT_THST_EXPO    0          # No motor exponential
-SCHED_LOOP_RATE  300        
+# Webots basicTimeStep=2 мс: IMU около 500 Гц, нужно >= 1.8 * loop rate.
+SCHED_LOOP_RATE  250
 INS_GYR_CAL      0
 
 # Значения ACRO_BAL не должны превышать ATC_ANG_RLL/PIT_P = 0.5.
@@ -46,3 +47,10 @@ INS_ACC3OFFS_Z 0
 INS_ACC3SCAL_X 1
 INS_ACC3SCAL_Y 1
 INS_ACC3SCAL_Z 1
+
+# Ограниченный полёт: горизонтальная скорость 0.5 м/с, подъём 0.5 м/с.
+WP_SPD 0.5
+WP_ACC 0.5
+WP_SPD_UP 0.5
+WP_SPD_DN 0.3
+WP_ACC_Z 0.5

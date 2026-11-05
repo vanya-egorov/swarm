@@ -1,0 +1,62 @@
+#VRML_SIM R2025b utf8
+
+EXTERNPROTO "@IRIS_PROTO@"
+
+WorldInfo {
+  title "Swarm — three Iris"
+  basicTimeStep 2
+  FPS 20
+}
+Viewpoint {
+  orientation 0 1 0 1.57079632679
+  position 6 6 28
+}
+Background {
+  skyColor [ 0.65 0.8 0.95 ]
+}
+DirectionalLight {
+  direction -0.5 -0.5 -1
+}
+Solid {
+  translation 0 0 -0.05
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.4 0.5 0.4
+        roughness 1
+        metalness 0
+      }
+      geometry DEF GROUND Box {
+        size 40 40 0.1
+      }
+    }
+  ]
+  boundingObject USE GROUND
+}
+Iris {
+  translation 0 0 0.06
+  name "Iris 0"
+  controller "ardupilot_vehicle_controller"
+  controllerArgs [
+    "--motors" "m1_motor, m2_motor, m3_motor, m4_motor"
+    "--instance" "0"
+  ]
+}
+Iris {
+  translation 12 0 0.06
+  name "Iris 1"
+  controller "ardupilot_vehicle_controller"
+  controllerArgs [
+    "--motors" "m1_motor, m2_motor, m3_motor, m4_motor"
+    "--instance" "1"
+  ]
+}
+Iris {
+  translation 0 12 0.06
+  name "Iris 2"
+  controller "ardupilot_vehicle_controller"
+  controllerArgs [
+    "--motors" "m1_motor, m2_motor, m3_motor, m4_motor"
+    "--instance" "2"
+  ]
+}

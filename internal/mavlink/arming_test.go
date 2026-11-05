@@ -17,8 +17,21 @@ import (
 // newArmingTestLink запускает единственного читателя телеметрии и тестовый автопилот.
 func newArmingTestLink(t *testing.T) (*ArmingController, *streamwriter.Writer, *frame.Reader) {
 	t.Helper()
-	source, writer, reader := newServoTestLink(t, streamwriter.V2)
-	controller, err := NewArmingController(source, CommandConfig{Timeout: 400 * time.Millisecond, RetryInterval: 80 * time.Millisecond, HeartbeatMaxAge: time.Second, MaxAttempts: 3})
+	return newArmingSystemLink(t, 42)
+}
+
+func newArmingSystemLink(t *testing.T, systemID uint8) (*ArmingController, *streamwriter.Writer, *frame.Reader) {
+	t.Helper()
+	source, writer, reader := newSystemTestLink(t, streamwriter.V2, systemID)
+	controller, err := NewArmingController(
+		source,
+		CommandConfig{
+			Timeout:         400 * time.Millisecond,
+			RetryInterval:   80 * time.Millisecond,
+			HeartbeatMaxAge: time.Second,
+			MaxAttempts:     3,
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +82,11 @@ func readArmingCommand(t *testing.T, reader *frame.Reader, armed bool, attempt u
 	if armed {
 		want = 1
 	}
-	if !ok || command.Command != common.MAV_CMD_COMPONENT_ARM_DISARM || command.Param1 != want || command.Param2 != 0 || command.Confirmation != attempt || command.TargetSystem != 42 || command.TargetComponent != 1 || packet.GetSystemID() != 250 {
+	if !ok || command.Command != common.MAV_CMD_COMPONENT_ARM_DISARM || command.Param1 != want || command.Param2 != 0 ||
+		command.Confirmation != attempt ||
+		command.TargetSystem != 42 ||
+		command.TargetComponent != 1 ||
+		packet.GetSystemID() != 250 {
 		t.Fatalf("unexpected arm command: %+v", packet.GetMessage())
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -121,7 +120,13 @@ func TestMonitorServo(t *testing.T) {
 	wantErr := errors.New("stream closed")
 	events := []Telemetry{
 		Heartbeat{SystemID: 7, ComponentID: 1, ReceivedAt: time.Now()},
-		ServoOutputs{SystemID: 7, ComponentID: 1, Port: 1, PWMUS: [16]uint16{1100, 1200, 1300, 1400, 15: 1600}, ReceivedAt: time.Unix(3, 0)},
+		ServoOutputs{
+			SystemID:    7,
+			ComponentID: 1,
+			Port:        1,
+			PWMUS:       [16]uint16{1100, 1200, 1300, 1400, 15: 1600},
+			ReceivedAt:  time.Unix(3, 0),
+		},
 	}
 	reader := telemetryReaderFunc(func(context.Context) (Telemetry, error) {
 		if len(events) == 0 {
@@ -140,14 +145,17 @@ func TestMonitorServo(t *testing.T) {
 		t.Fatalf("Run() error = %v, want wrapped stream error", err)
 	}
 	state := monitor.Snapshot()
-	if state.ServoOutputs == nil || state.ServoOutputs.Port != 1 || state.ServoOutputs.PWMUS != ([16]uint16{1100, 1200, 1300, 1400, 15: 1600}) || state.ServoOutputs.ReceivedAt != time.Unix(3, 0) {
+	if state.ServoOutputs == nil || state.ServoOutputs.Port != 1 ||
+		state.ServoOutputs.PWMUS != ([16]uint16{1100, 1200, 1300, 1400, 15: 1600}) ||
+		state.ServoOutputs.ReceivedAt != time.Unix(3, 0) {
 		t.Fatalf("unexpected servo output state: %+v", state)
 	}
 	state.ServoOutputs.PWMUS[0] = 0
 	if got := monitor.Snapshot().ServoOutputs.PWMUS[0]; got != 1100 {
 		t.Fatalf("snapshot changed monitor state: got PWM %d", got)
 	}
-	if !strings.Contains(output.String(), `"servo outputs"`) || !strings.Contains(output.String(), `"pwmUs1To4":[1100,1200,1300,1400]`) {
+	if !strings.Contains(output.String(), `"servo outputs"`) ||
+		!strings.Contains(output.String(), `"pwmUs1To4":[1100,1200,1300,1400]`) {
 		t.Fatalf("servo outputs were not logged with units: %s", output.String())
 	}
 }
@@ -167,7 +175,7 @@ func TestMonitorConcurrentSnapshots(t *testing.T) {
 			return event, nil
 		}
 	})
-	monitor, err := NewMonitor(reader, slog.New(slog.NewTextHandler(io.Discard, nil)), 5*time.Second)
+	monitor, err := NewMonitor(reader, slog.New(slog.DiscardHandler), 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +257,7 @@ func TestMonitorDeadline(t *testing.T) {
 					return test.event, nil
 				}
 			})
-			monitor, err := NewMonitor(reader, slog.New(slog.NewTextHandler(io.Discard, nil)), 40*time.Millisecond)
+			monitor, err := NewMonitor(reader, slog.New(slog.DiscardHandler), 40*time.Millisecond)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -286,7 +294,7 @@ func TestMonitorSystemID(t *testing.T) {
 				events = events[1:]
 				return event, nil
 			})
-			monitor, err := NewMonitor(reader, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second)
+			monitor, err := NewMonitor(reader, slog.New(slog.DiscardHandler), time.Second)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -318,7 +326,7 @@ func TestMonitorComponentChange(t *testing.T) {
 		events = events[1:]
 		return event, nil
 	})
-	monitor, err := NewMonitor(reader, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second)
+	monitor, err := NewMonitor(reader, slog.New(slog.DiscardHandler), time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
