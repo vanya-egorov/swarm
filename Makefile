@@ -16,6 +16,9 @@ swarm-arm-check: build
 swarm-start: build
 	@DRONE_COUNT=3 bash scripts/devstack.sh start
 
+sitl-build:
+	@python3 scripts/build_sitl.py
+
 swarm-world:
 	@python3 scripts/prepare_world.py
 

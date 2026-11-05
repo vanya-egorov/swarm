@@ -3,7 +3,11 @@
 project_dir="$(cd "$script_dir/.." && pwd)"
 run_dir="${RUN_DIR:-${project_dir}/projectData/run}"
 ardupilot_dir="${ARDUPILOT_DIR:-${project_dir}/projectData/ardupilot}"
-SITL_BIN="${SITL_BIN:-${ardupilot_dir}/build/sitl/bin/arducopter}"
+default_sitl="${ardupilot_dir}/build/sitl/bin/arducopter"
+if [[ -x "$run_dir/bin/arducopter-webots" ]]; then
+  default_sitl="$run_dir/bin/arducopter-webots"
+fi
+SITL_BIN="${SITL_BIN:-${default_sitl}}"
 SITL_PARAMS="${SITL_PARAMS:-${ardupilot_dir}/libraries/SITL/examples/Webots_Python/params/iris.parm}"
 MAVLINK_PORT="${MAVLINK_PORT:-14560}"
 SYSTEM_ID="${SYSTEM_ID:-1}"
