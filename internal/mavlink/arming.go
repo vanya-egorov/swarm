@@ -3,12 +3,13 @@ package mavlink
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/bluenviron/gomavlib/v3"
 	"github.com/bluenviron/gomavlib/v3/pkg/dialects/ardupilotmega"
 	"github.com/bluenviron/gomavlib/v3/pkg/dialects/common"
 	"github.com/vanya-egorov/swarm/internal/vehicle"
-	"sync"
-	"time"
 )
 
 // CommandConfig задаёт ограничения ожидания и повтора команд.
