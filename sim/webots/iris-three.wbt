@@ -36,7 +36,7 @@ Solid {
 Iris {
   translation 0 0 0.06
   name "Iris 0"
-  controller "ardupilot_vehicle_controller"
+  controller "swarm_ardupilot_vehicle_controller"
   controllerArgs [
     "--motors" "m1_motor, m2_motor, m3_motor, m4_motor"
     "--instance" "0"
@@ -45,7 +45,7 @@ Iris {
 Iris {
   translation 12 0 0.06
   name "Iris 1"
-  controller "ardupilot_vehicle_controller"
+  controller "swarm_ardupilot_vehicle_controller"
   controllerArgs [
     "--motors" "m1_motor, m2_motor, m3_motor, m4_motor"
     "--instance" "1"
@@ -54,7 +54,7 @@ Iris {
 Iris {
   translation 0 12 0.06
   name "Iris 2"
-  controller "ardupilot_vehicle_controller"
+  controller "swarm_ardupilot_vehicle_controller"
   controllerArgs [
     "--motors" "m1_motor, m2_motor, m3_motor, m4_motor"
     "--instance" "2"

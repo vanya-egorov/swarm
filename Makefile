@@ -19,11 +19,38 @@ swarm-start: build
 sitl-build:
 	@python3 scripts/build_sitl.py
 
+VILLAGE_PYTHON ?= projectData/tools/village/bin/python
+VILLAGE_SOURCE ?= проект_карта_деревни
+VILLAGE_MAP_SIZE ?= 1500
+VILLAGE_CROP_SIZE ?= 240
+
+village-deps:
+	@python3 -m venv projectData/tools/village
+	@$(VILLAGE_PYTHON) -m pip install -r scripts/requirements-village.txt
+
+village-world:
+	@$(VILLAGE_PYTHON) scripts/prepare_village.py --source "$(VILLAGE_SOURCE)" --map-size "$(VILLAGE_MAP_SIZE)" --crop-size "$(VILLAGE_CROP_SIZE)"
+
+village-validate:
+	@python3 scripts/validate_village.py
+
+village-route-check: build
+	@DRONE_COUNT=3 ARM_CHECK_PARAMS="$${RUN_DIR:-projectData/run}/webots/village-flight.parm" bash scripts/devstack.sh group-route-check
+
+village-flight-check: build
+	@python3 scripts/check_village_flight.py
+
+test-village:
+	@$(VILLAGE_PYTHON) -m unittest discover -s scripts/village/tests -v
+
 swarm-world:
 	@python3 scripts/prepare_world.py
 
 stop status:
 	@bash scripts/devstack.sh $@
+
+console:
+	@python3 scripts/console.py
 
 build:
 	@mkdir -p projectData/run/bin
