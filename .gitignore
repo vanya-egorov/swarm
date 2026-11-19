@@ -12,6 +12,3 @@ __pycache__/
 /scripts/
 /ui/
 /sim/ardupilot/village-flight.parm
-/sim/webots/controllers/village_validator/village_validator.py
-/sim/webots/controllers/swarm_ardupilot_vehicle_controller/swarm_ardupilot_vehicle_controller.py
-/sim/webots/controllers/swarm_ardupilot_vehicle_controller/runtime.ini

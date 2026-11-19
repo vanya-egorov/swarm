@@ -22,29 +22,32 @@ sitl-build:
 VILLAGE_PYTHON ?= projectData/tools/village/bin/python
 VILLAGE_SOURCE ?= проект_карта_деревни
 VILLAGE_MAP_SIZE ?= 1500
-VILLAGE_CROP_SIZE ?= 240
 
 village-deps:
 	@python3 -m venv projectData/tools/village
 	@$(VILLAGE_PYTHON) -m pip install -r scripts/requirements-village.txt
 
 village-world:
-	@$(VILLAGE_PYTHON) scripts/prepare_village.py --source "$(VILLAGE_SOURCE)" --map-size "$(VILLAGE_MAP_SIZE)" --crop-size "$(VILLAGE_CROP_SIZE)"
+	@$(VILLAGE_PYTHON) scripts/prepare_village.py --source "$(VILLAGE_SOURCE)" --map-size "$(VILLAGE_MAP_SIZE)"
+
+village-sensors:
+	@python3 sim/webots/configure_sensors.py
 
 village-validate:
-	@python3 scripts/validate_village.py
+	@python3 sim/webots/configure_sensors.py --check
 
 village-route-check: build
 	@DRONE_COUNT=3 ARM_CHECK_PARAMS="$${RUN_DIR:-projectData/run}/webots/village-flight.parm" bash scripts/devstack.sh group-route-check
 
-village-flight-check: build
-	@python3 scripts/check_village_flight.py
+village-flight-check: village-route-check
 
 test-village:
 	@$(VILLAGE_PYTHON) -m unittest discover -s scripts/village/tests -v
 
-swarm-world:
-	@python3 scripts/prepare_world.py
+swarm-world: village-world
+
+test-sensors:
+	@python3 -m unittest discover -s sim/webots/tests -v
 
 stop status:
 	@bash scripts/devstack.sh $@
@@ -72,4 +75,4 @@ fmt:
 test-stack:
 	python3 -m unittest discover -s scripts/tests -v
 
-check: lint test-race test-stack
+check: lint test-race test-stack test-sensors
