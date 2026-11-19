@@ -38,6 +38,16 @@ type PositionController interface {
 	SetPositionTarget(context.Context, PositionTarget) error
 }
 
+// StageCoordinator разрешает этапы и сохраняет подтверждённый прогресс маршрута.
+// Этап 1 — взлёт и зависание; затем точки; последний барьер разрешает посадку.
+type StageCoordinator interface {
+	Wait(context.Context, int) error
+	Reached(int) error
+}
+
+// StageFailureObserver позволяет сообщить об отказе задания до начала посадки.
+type StageFailureObserver interface{ Failed(error) }
+
 // RunRouteCheck проверяет весь маршрут до arm и сохраняет посадку при любой ошибке.
 func RunRouteCheck(
 	ctx context.Context,
@@ -47,6 +57,36 @@ func RunRouteCheck(
 	states StateReader,
 	logger *slog.Logger,
 	config RouteCheckConfig,
+) error {
+	return runRouteCheck(ctx, flight, arming, positions, states, logger, config, nil)
+}
+
+// RunCoordinatedRouteCheck исполняет маршрут с внешними барьерами и штатной посадкой при отказе.
+func RunCoordinatedRouteCheck(
+	ctx context.Context,
+	flight FlightController,
+	arming ArmingController,
+	positions PositionController,
+	states StateReader,
+	logger *slog.Logger,
+	config RouteCheckConfig,
+	coordinator StageCoordinator,
+) error {
+	if coordinator == nil {
+		return errors.New("route coordinator required")
+	}
+	return runRouteCheck(ctx, flight, arming, positions, states, logger, config, coordinator)
+}
+
+func runRouteCheck(
+	ctx context.Context,
+	flight FlightController,
+	arming ArmingController,
+	positions PositionController,
+	states StateReader,
+	logger *slog.Logger,
+	config RouteCheckConfig,
+	coordinator StageCoordinator,
 ) error {
 	if positions == nil || flight == nil || arming == nil || states == nil || logger == nil {
 		return errors.New("route check: missing dependency")
@@ -68,41 +108,114 @@ func RunRouteCheck(
 	if err != nil {
 		return err
 	}
-	return flightcore.RunFlightCheckTask(ctx, flight, arming, states, logger, config.Flight, func(before State) error {
-		// Место старта не должно измениться между подготовкой и взлётом.
-		if !flightcore.SameDrone(origin, before) ||
-			coordinates.HorizontalDistance(
-				origin.Position.LatitudeDeg,
-				origin.Position.LongitudeDeg,
-				before.Position.LatitudeDeg,
-				before.Position.LongitudeDeg,
-			) > config.HorizontalToleranceM {
-			return errors.New("route origin changed")
+	if coordinator != nil {
+		if err := coordinator.Wait(ctx, 1); err != nil {
+			return fmt.Errorf("launch barrier: %w", err)
 		}
-		// Горизонтальное движение начинается после стабилизации подъёма.
-		settleCtx, cancel := context.WithTimeout(ctx, config.Flight.ClimbTimeout)
-		err := followTarget(settleCtx, positions, states, before, config, PositionTarget{
-			LatitudeDeg:       before.Position.LatitudeDeg,
-			LongitudeDeg:      before.Position.LongitudeDeg,
-			RelativeAltitudeM: config.Flight.TargetAltitudeM,
-		})
-		cancel()
-		if err != nil {
-			return fmt.Errorf("hover: %w", err)
-		}
-		logger.Info("hover stable", "systemId", before.SystemID)
-		for i, target := range targets {
-			logger.Info("waypoint started", "index", i+1, "target", target)
-			waypointCtx, cancel := context.WithTimeout(ctx, config.WaypointTimeout)
-			err := followTarget(waypointCtx, positions, states, before, config, target)
+	}
+	return flightcore.RunFlightCheckTask(
+		ctx,
+		flight,
+		arming,
+		states,
+		logger,
+		config.Flight,
+		func(before State) (taskErr error) {
+			defer func() {
+				if observer, ok := coordinator.(StageFailureObserver); ok && taskErr != nil {
+					observer.Failed(taskErr)
+				}
+			}()
+			// Место старта не должно измениться между подготовкой и взлётом.
+			if !flightcore.SameDrone(origin, before) ||
+				coordinates.HorizontalDistance(
+					origin.Position.LatitudeDeg,
+					origin.Position.LongitudeDeg,
+					before.Position.LatitudeDeg,
+					before.Position.LongitudeDeg,
+				) > config.HorizontalToleranceM {
+				return errors.New("route origin changed")
+			}
+			// Горизонтальное движение начинается после стабилизации подъёма.
+			settleCtx, cancel := context.WithTimeout(ctx, config.Flight.ClimbTimeout)
+			err := followTarget(settleCtx, positions, states, before, config, PositionTarget{
+				LatitudeDeg:       before.Position.LatitudeDeg,
+				LongitudeDeg:      before.Position.LongitudeDeg,
+				RelativeAltitudeM: config.Flight.TargetAltitudeM,
+			})
 			cancel()
 			if err != nil {
-				return fmt.Errorf("waypoint %d: %w", i+1, err)
+				return fmt.Errorf("hover: %w", err)
 			}
-			logger.Info("waypoint reached", "index", i+1)
-		}
+			logger.Info("hover stable", "systemId", before.SystemID)
+			current := PositionTarget{LatitudeDeg: before.Position.LatitudeDeg,
+				LongitudeDeg: before.Position.LongitudeDeg, RelativeAltitudeM: config.Flight.TargetAltitudeM}
+			if coordinator != nil {
+				if err := coordinator.Reached(1); err != nil {
+					return err
+				}
+			}
+			for i, target := range targets {
+				if err := waitForStage(ctx, coordinator, i+2, positions, states, before, config, current); err != nil {
+					return err
+				}
+				logger.Info("waypoint started", "index", i+1, "target", target)
+				waypointCtx, cancel := context.WithTimeout(ctx, config.WaypointTimeout)
+				err := followTarget(waypointCtx, positions, states, before, config, target)
+				cancel()
+				if err != nil {
+					return fmt.Errorf("waypoint %d: %w", i+1, err)
+				}
+				logger.Info("waypoint reached", "index", i+1)
+				current = target
+				if coordinator != nil {
+					if err := coordinator.Reached(i + 2); err != nil {
+						return err
+					}
+				}
+			}
+			return waitForStage(ctx, coordinator, len(targets)+2, positions, states, before, config, current)
+		},
+	)
+}
+
+func waitForStage(ctx context.Context, coordinator StageCoordinator, stage int, positions PositionController,
+	states StateReader, before State, config RouteCheckConfig, target PositionTarget) error {
+	if coordinator == nil {
 		return nil
-	})
+	}
+	waitCtx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() { done <- coordinator.Wait(waitCtx, stage) }()
+	defer cancel()
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	lastSent := time.Now()
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-ctx.Done():
+			cancel()
+			<-done
+			return ctx.Err()
+		case <-ticker.C:
+			if err := flightcore.CheckState(states.Snapshot(), before, config.Flight, true); err != nil {
+				cancel()
+				<-done
+				return err
+			}
+			if time.Since(lastSent) >= time.Second {
+				if err := flightcore.RunCommand(ctx, config.Flight.CommandTimeout,
+					func(c context.Context) error { return positions.SetPositionTarget(c, target) }); err != nil {
+					cancel()
+					<-done
+					return err
+				}
+				lastSent = time.Now()
+			}
+		}
+	}
 }
 
 func followTarget(

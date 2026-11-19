@@ -1,0 +1,21 @@
+{
+  "RunID": "coverage-example-001",
+  "Origin": {"LatitudeDeg": 0, "LongitudeDeg": 0},
+  "Area": {
+    "Min": {"NorthM": 0, "EastM": 0},
+    "Max": {"NorthM": 10, "EastM": 18}
+  },
+  "Coverage": {"SwathWidthM": 6, "LaneSpacingM": 6, "AltitudeM": 1.5},
+  "Launches": [
+    {"SystemID": 1, "Position": {"NorthM": 5, "EastM": 3}},
+    {"SystemID": 2, "Position": {"NorthM": 5, "EastM": 9}},
+    {"SystemID": 3, "Position": {"NorthM": 5, "EastM": 15}}
+  ],
+  "Network": {
+    "Peers": [
+      {"SystemID": 1, "Address": "127.0.0.1:14601"},
+      {"SystemID": 2, "Address": "127.0.0.1:14602"},
+      {"SystemID": 3, "Address": "127.0.0.1:14603"}
+    ]
+  }
+}

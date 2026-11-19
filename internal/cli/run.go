@@ -33,6 +33,12 @@ func Run(ctx context.Context, args []string, logger *slog.Logger) error {
 		false,
 		"совместный квадрат трёх SITL с ожиданием всех участников",
 	)
+	coverageMission := flags.String("coverage-mission", "", "JSON-задание распределённого покрытия для этого SITL")
+	coordinationState := flags.String(
+		"coordination-state-dir",
+		"projectData/run/coordination",
+		"каталог голосов и маркеров задания",
+	)
 	timeout := flags.Duration("heartbeat-timeout", 10*time.Second, "тайм-аут heartbeat")
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("flags: %w", err)
@@ -45,7 +51,7 @@ func Run(ctx context.Context, args []string, logger *slog.Logger) error {
 	}
 
 	checks := 0
-	for _, enabled := range []bool{*armCheck, *flightCheck, *routeCheck, *groupCheck, *groupRoute} {
+	for _, enabled := range []bool{*armCheck, *flightCheck, *routeCheck, *groupCheck, *groupRoute, *coverageMission != ""} {
 		if enabled {
 			checks++
 		}
@@ -62,6 +68,17 @@ func Run(ctx context.Context, args []string, logger *slog.Logger) error {
 
 	if *groupCheck || *groupRoute {
 		return runGroupCheck(ctx, *listenAddress, *systemID, *timeout, logger, *groupRoute)
+	}
+	if *coverageMission != "" {
+		return runCoverageCheck(
+			ctx,
+			*coverageMission,
+			*coordinationState,
+			*listenAddress,
+			uint8(*systemID),
+			*timeout,
+			logger,
+		)
 	}
 
 	source, err := mavtelemetry.NewTelemetrySource(*listenAddress, uint8(*systemID), logger)

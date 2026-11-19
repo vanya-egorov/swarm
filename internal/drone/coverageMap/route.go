@@ -27,6 +27,12 @@ func GenerateRoute(area Area, config Config) ([]route.Waypoint, error) {
 		minCross, maxCross = area.Min.NorthM, area.Max.NorthM
 	}
 	count := math.Ceil((maxCross - minCross) / config.LaneSpacingM)
+	if config.BoundaryMarginM > 0 {
+		if config.BoundaryMarginM > (maxCross-minCross)/2 || config.BoundaryMarginM > (maxAlong-minAlong)/2 {
+			return nil, errors.New("coverage route: region too narrow for boundary margin")
+		}
+		count = math.Ceil((maxCross-minCross-2*config.BoundaryMarginM)/config.LaneSpacingM) + 1
+	}
 	if math.IsInf(count, 0) || count > maxWaypoints/2 {
 		return nil, errors.New("coverage route: too many waypoints")
 	}
@@ -40,6 +46,16 @@ func GenerateRoute(area Area, config Config) ([]route.Waypoint, error) {
 	previousCross := minCross
 	for i := range lanes {
 		cross := minCross + (maxCross-minCross)*((float64(i)+0.5)/float64(lanes))
+		if config.BoundaryMarginM > 0 {
+			cross = minCross + (maxCross-minCross)/2
+			if lanes > 1 {
+				cross = minCross + config.BoundaryMarginM +
+					(maxCross-minCross-2*config.BoundaryMarginM)*float64(i)/float64(lanes-1)
+				if i == lanes-1 {
+					cross = maxCross - config.BoundaryMarginM
+				}
+			}
+		}
 		if cross <= previousCross || cross >= maxCross || start <= minAlong || start >= maxAlong ||
 			end <= minAlong || end >= maxAlong {
 			return nil, errors.New("coverage route: coordinates too large for requested resolution")
