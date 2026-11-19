@@ -1,0 +1,23 @@
+#VRML_SIM R2025b utf8
+EXTERNPROTO "@IRIS_PROTO@"
+EXTERNPROTO "SwarmSensors.proto"
+PROTO SensorIris [
+  field SFVec3f translation 0 0 0.06
+  field SFRotation rotation 0 0 1 0
+  field SFString name "Sensor Iris"
+  field SFString controller "coverage_vehicle"
+  field MFString controllerArgs []
+  field SFString customData ""
+  field SFBool supervisor FALSE
+] {
+  Iris {
+    translation IS translation
+    rotation IS rotation
+    name IS name
+    controller IS controller
+    controllerArgs IS controllerArgs
+    customData IS customData
+    supervisor IS supervisor
+    extensionSlot [ SwarmSensors {} ]
+  }
+}
