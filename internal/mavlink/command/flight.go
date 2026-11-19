@@ -88,3 +88,53 @@ func (c *ArmingController) SetPositionTarget(ctx context.Context, target route.P
 		), LonInt: int32(math.Round(target.LongitudeDeg * 1e7)), Alt: float32(target.RelativeAltitudeM),
 	})
 }
+
+// SetVelocityTarget отправляет все три компоненты скорости NED с нулевым yaw rate.
+// Поток повторяет навигатор; нулевой вектор останавливает горизонтальное продвижение.
+func (c *ArmingController) SetVelocityTarget(ctx context.Context, north, east, down float64) error {
+	for _, v := range []float64{north, east, down} {
+		if math.IsNaN(v) || math.IsInf(v, 0) || math.Abs(v) > 1 {
+			return fmt.Errorf("navigation velocity outside limits")
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed || c.channel == nil {
+		return flight.ErrCommandLinkChanged
+	}
+	if c.pending != nil {
+		return flight.ErrCommandBusy
+	}
+	age := time.Since(c.heartbeat.ReceivedAt)
+	if age < 0 || age > c.config.HeartbeatMaxAge {
+		return model.ErrHeartbeatTimeout
+	}
+	if !c.heartbeat.Armed || c.heartbeat.Mode != model.ModeGuided {
+		return fmt.Errorf("velocity target requires armed GUIDED")
+	}
+	return c.source.WriteMessageTo(c.channel, &ardupilotmega.MessageSetPositionTargetLocalNed{
+		TargetSystem: c.source.ExpectedSystemID(), TargetComponent: c.heartbeat.ComponentID,
+		CoordinateFrame: common.MAV_FRAME_LOCAL_NED,
+		TypeMask: common.POSITION_TARGET_TYPEMASK_X_IGNORE | common.POSITION_TARGET_TYPEMASK_Y_IGNORE | common.POSITION_TARGET_TYPEMASK_Z_IGNORE |
+			common.POSITION_TARGET_TYPEMASK_AX_IGNORE | common.POSITION_TARGET_TYPEMASK_AY_IGNORE | common.POSITION_TARGET_TYPEMASK_AZ_IGNORE |
+			common.POSITION_TARGET_TYPEMASK_YAW_IGNORE,
+		Vx: float32(north), Vy: float32(east), Vz: float32(down), YawRate: 0,
+	})
+}
+
+// SetNavigationSpeed устанавливает подтверждённый предел скорости GUIDED в м/с.
+func (c *ArmingController) SetNavigationSpeed(ctx context.Context, speed float64) error {
+	if math.IsNaN(speed) || math.IsInf(speed, 0) || speed <= 0 || speed > 1 {
+		return fmt.Errorf("navigation speed outside limits")
+	}
+	return c.execute(ctx, common.MAV_CMD_DO_CHANGE_SPEED, func(p *pendingCommand, _ int) error {
+		return c.source.WriteMessageTo(
+			p.channel,
+			&ardupilotmega.MessageCommandInt{TargetSystem: c.source.ExpectedSystemID(), TargetComponent: p.componentID,
+				Frame: common.MAV_FRAME_MISSION, Command: common.MAV_CMD_DO_CHANGE_SPEED, Param1: 1, Param2: float32(speed), Param3: -1},
+		)
+	}, nil, "speedMS", speed)
+}

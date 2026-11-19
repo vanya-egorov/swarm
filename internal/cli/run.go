@@ -34,6 +34,16 @@ func Run(ctx context.Context, args []string, logger *slog.Logger) error {
 		"совместный квадрат трёх SITL с ожиданием всех участников",
 	)
 	coverageMission := flags.String("coverage-mission", "", "JSON-задание распределённого покрытия для этого SITL")
+	sensorListen := flags.String(
+		"sensor-listen",
+		"",
+		"UDP-приёмник лидара/сонаров; по умолчанию 127.0.0.1:14700+system-id",
+	)
+	sensorSource := flags.String(
+		"sensor-source",
+		"",
+		"UDP-адрес контроллера сенсоров; по умолчанию 127.0.0.1:14800+system-id",
+	)
 	coordinationState := flags.String(
 		"coordination-state-dir",
 		"projectData/run/coordination",
@@ -78,6 +88,7 @@ func Run(ctx context.Context, args []string, logger *slog.Logger) error {
 			uint8(*systemID),
 			*timeout,
 			logger,
+			*sensorListen, *sensorSource,
 		)
 	}
 

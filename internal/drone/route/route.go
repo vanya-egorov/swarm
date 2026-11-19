@@ -38,6 +38,22 @@ type PositionController interface {
 	SetPositionTarget(context.Context, PositionTarget) error
 }
 
+// VelocityController задаёт скорость north/east/down в GUIDED, в м/с.
+type VelocityController interface {
+	SetVelocityTarget(context.Context, float64, float64, float64) error
+}
+
+// NavigationSpeedController подтверждает ограничение горизонтальной скорости автопилотом.
+type NavigationSpeedController interface {
+	SetNavigationSpeed(context.Context, float64) error
+}
+
+// TargetFollower заменяет прямой перелёт локальным навигатором с проверкой сенсоров.
+type TargetFollower interface {
+	FollowTarget(context.Context, State, RouteCheckConfig, PositionTarget) error
+	HoldTarget(context.Context, State, RouteCheckConfig, PositionTarget) error
+}
+
 // StageCoordinator разрешает этапы и сохраняет подтверждённый прогресс маршрута.
 // Этап 1 — взлёт и зависание; затем точки; последний барьер разрешает посадку.
 type StageCoordinator interface {
@@ -205,6 +221,14 @@ func waitForStage(ctx context.Context, coordinator StageCoordinator, stage int, 
 				<-done
 				return err
 			}
+			if navigator, ok := positions.(TargetFollower); ok {
+				if err := navigator.HoldTarget(ctx, before, config, target); err != nil {
+					cancel()
+					<-done
+					return err
+				}
+				continue
+			}
 			if time.Since(lastSent) >= time.Second {
 				if err := flightcore.RunCommand(ctx, config.Flight.CommandTimeout,
 					func(c context.Context) error { return positions.SetPositionTarget(c, target) }); err != nil {
@@ -226,6 +250,9 @@ func followTarget(
 	config RouteCheckConfig,
 	target PositionTarget,
 ) error {
+	if navigator, ok := positions.(TargetFollower); ok {
+		return navigator.FollowTarget(ctx, before, config, target)
+	}
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
 	var firstSent, lastSent, arrived time.Time

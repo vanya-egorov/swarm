@@ -11,6 +11,7 @@ import (
 
 	"github.com/vanya-egorov/swarm/internal/drone/coordinates"
 	"github.com/vanya-egorov/swarm/internal/drone/coordination"
+	"github.com/vanya-egorov/swarm/internal/drone/navigation"
 	"github.com/vanya-egorov/swarm/internal/drone/route"
 	"github.com/vanya-egorov/swarm/internal/drone/telemetry"
 )
@@ -33,15 +34,22 @@ type MissionConfig struct {
 	Launches                        []Launch
 	Network                         coordination.Config
 	Route                           route.RouteCheckConfig
+	Navigation                      navigation.Config
 	MinSeparationM                  float64
 	FailoverTimeout, BarrierTimeout time.Duration
 }
 
 // DefaultMissionConfig сохраняет ограничения полётов SITL и задаёт интервалы координации.
 func DefaultMissionConfig() MissionConfig {
-	return MissionConfig{Coverage: DefaultConfig(), Network: coordination.DefaultConfig(),
-		Route: route.DefaultRouteCheckConfig(), MinSeparationM: 4,
-		FailoverTimeout: 6 * time.Second, BarrierTimeout: 40 * time.Second}
+	return MissionConfig{
+		Coverage:        DefaultConfig(),
+		Network:         coordination.DefaultConfig(),
+		Navigation:      navigation.DefaultConfig(),
+		Route:           route.DefaultRouteCheckConfig(),
+		MinSeparationM:  4,
+		FailoverTimeout: 6 * time.Second,
+		BarrierTimeout:  40 * time.Second,
+	}
 }
 
 // PreparedMission содержит проверенный локальный маршрут и общую идентичность задания.
@@ -74,8 +82,38 @@ func PrepareMission(config MissionConfig, systemID uint8) (PreparedMission, erro
 		ids[i] = peer.SystemID
 	}
 	clearance := config.MinSeparationM/2 + config.Route.HorizontalToleranceM
+	if config.Navigation.Enabled {
+		if err := config.Navigation.Validate(); err != nil {
+			return PreparedMission{}, err
+		}
+		clearance += config.Navigation.ClearanceM
+	}
 	config.Coverage.BoundaryMarginM = math.Max(config.Coverage.BoundaryMarginM, clearance)
-	assignments, err := Plan(config.Area, ids, config.Coverage)
+	// Полосы назначаются по фактическому порядку стартов, а не по номеру аппарата.
+	ordered := append([]Launch(nil), config.Launches...)
+	slices.SortFunc(ordered, func(a, b Launch) int {
+		av, bv := a.Position.EastM, b.Position.EastM
+		if config.Coverage.Direction == EastWest {
+			av, bv = a.Position.NorthM, b.Position.NorthM
+		}
+		if av < bv {
+			return -1
+		}
+		if av > bv {
+			return 1
+		}
+		return int(a.SystemID) - int(b.SystemID)
+	})
+	assignedIDs := make([]uint8, len(ordered))
+	for i, launch := range ordered {
+		assignedIDs[i] = launch.SystemID
+	}
+	planningCoverage := config.Coverage
+	if config.Navigation.Enabled {
+		planningCoverage.SwathWidthM -= 2 * config.Route.HorizontalToleranceM
+		planningCoverage.LaneSpacingM = math.Min(planningCoverage.LaneSpacingM, planningCoverage.SwathWidthM)
+	}
+	assignments, err := Plan(config.Area, assignedIDs, planningCoverage)
 	if err != nil {
 		return PreparedMission{}, err
 	}
@@ -100,8 +138,15 @@ func PrepareMission(config MissionConfig, systemID uint8) (PreparedMission, erro
 		return PreparedMission{}, err
 	}
 	var prepared PreparedMission
-	for i, assignment := range assignments {
-		launch := config.Launches[i]
+	launches := make(map[uint8]Launch, len(config.Launches))
+	for i, launch := range config.Launches {
+		if launch.SystemID != ids[i] {
+			return PreparedMission{}, errors.New("launch IDs must match network membership")
+		}
+		launches[launch.SystemID] = launch
+	}
+	for _, assignment := range assignments {
+		launch := launches[assignment.SystemID]
 		if launch.SystemID != assignment.SystemID || !inside(launch.Position, assignment.Area, clearance) {
 			return PreparedMission{}, fmt.Errorf(
 				"vehicle %d: launch must be inside its region with clearance %.2f m",
@@ -120,6 +165,22 @@ func PrepareMission(config MissionConfig, systemID uint8) (PreparedMission, erro
 		points, err := assignment.WaypointsFrom(launch.Position)
 		if err != nil {
 			return PreparedMission{}, err
+		}
+		if config.Navigation.Enabled {
+			boundsMargin := config.MinSeparationM/2 + config.Route.HorizontalToleranceM
+			_, err := navigation.NewGrid(navigation.Bounds{
+				Min: navigation.Point{
+					NorthM: assignment.Area.Min.NorthM - launch.Position.NorthM + boundsMargin,
+					EastM:  assignment.Area.Min.EastM - launch.Position.EastM + boundsMargin,
+				},
+				Max: navigation.Point{
+					NorthM: assignment.Area.Max.NorthM - launch.Position.NorthM - boundsMargin,
+					EastM:  assignment.Area.Max.EastM - launch.Position.EastM - boundsMargin,
+				},
+			}, config.Navigation)
+			if err != nil {
+				return PreparedMission{}, err
+			}
 		}
 		for len(points) < length {
 			points = append(points, points[len(points)-1])

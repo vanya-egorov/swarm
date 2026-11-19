@@ -13,7 +13,9 @@ import (
 	"github.com/vanya-egorov/swarm/internal/drone/coordinates"
 	"github.com/vanya-egorov/swarm/internal/drone/coordination"
 	"github.com/vanya-egorov/swarm/internal/drone/flight"
+	"github.com/vanya-egorov/swarm/internal/drone/navigation"
 	"github.com/vanya-egorov/swarm/internal/drone/route"
+	"github.com/vanya-egorov/swarm/internal/drone/sensors"
 	"github.com/vanya-egorov/swarm/internal/drone/telemetry"
 )
 
@@ -23,6 +25,8 @@ type Vehicle struct {
 	Arming    flight.ArmingController
 	Positions route.PositionController
 	States    telemetry.StateReader
+	Sensors   sensors.Reader
+	Velocity  route.VelocityController
 }
 
 // MissionRunner связывает распределённую координацию с локальным полётом.
@@ -38,12 +42,13 @@ type MissionRunner struct {
 }
 
 type missionSession struct {
-	mu      sync.Mutex
-	status  coordination.Status
-	mission PreparedMission
-	agent   *coordination.Agent
-	vehicle Vehicle
-	marker  string
+	mu            sync.Mutex
+	status        coordination.Status
+	mission       PreparedMission
+	agent         *coordination.Agent
+	vehicle       Vehicle
+	marker        string
+	sensorSession string
 }
 
 // Run проверяет задание, ожидает общую готовность и выполняет покрытие с подтверждённой посадкой.
@@ -52,6 +57,9 @@ func (r MissionRunner) Run(ctx context.Context) error {
 	if r.Vehicle.Flight == nil || r.Vehicle.Arming == nil || r.Vehicle.Positions == nil || r.Vehicle.States == nil ||
 		r.Transport == nil || r.Store == nil || r.Logger == nil || r.StartMarker == "" {
 		return errors.New("coverage mission: missing dependency or start marker")
+	}
+	if r.Config.Navigation.Enabled && (r.Vehicle.Sensors == nil || r.Vehicle.Velocity == nil) {
+		return errors.New("coverage navigation requires lidar, sonars and velocity control")
 	}
 	m, err := PrepareMission(r.Config, r.SystemID)
 	if err != nil {
@@ -79,7 +87,11 @@ func (r MissionRunner) Run(ctx context.Context) error {
 	defer func() { stopNetwork(); <-networkDone }()
 	readyCtx, stopReady := context.WithTimeout(flightCtx, m.Route.Flight.ReadyTimeout)
 	before, err := flight.WaitForState(readyCtx, r.Vehicle.States, func(state telemetry.State) bool {
-		return flight.FreshState(state, m.Route.Flight.TelemetryMaxAge)
+		if !flight.FreshState(state, m.Route.Flight.TelemetryMaxAge) {
+			return false
+		}
+		return !m.Config.Navigation.Enabled ||
+			r.Vehicle.Sensors.Snapshot().Fresh(time.Now(), m.Config.Navigation.SensorMaxAge)
 	})
 	stopReady()
 	if err != nil {
@@ -90,6 +102,46 @@ func (r MissionRunner) Run(ctx context.Context) error {
 		coordinates.HorizontalDistance(before.Position.LatitudeDeg, before.Position.LongitudeDeg,
 			m.ExpectedLaunch.LatitudeDeg, m.ExpectedLaunch.LongitudeDeg) > m.Route.HorizontalToleranceM {
 		return errors.New("coverage mission: drone must be disarmed at its configured launch in STABILIZE")
+	}
+	positions := r.Vehicle.Positions
+	if m.Config.Navigation.Enabled {
+		frame := r.Vehicle.Sensors.Snapshot()
+		if frame == nil || frame.Validate() != nil ||
+			frame.Sonars[8].RangeM < m.Route.Flight.TargetAltitudeM-before.Position.RelativeAltitudeM+m.Config.Navigation.VerticalBandM {
+			return errors.New("sensor geometry invalid or ceiling too low for takeoff")
+		}
+		launch := Point{}
+		for _, l := range m.Config.Launches {
+			if l.SystemID == r.SystemID {
+				launch = l.Position
+			}
+		}
+		margin := m.Config.MinSeparationM/2 + m.Route.HorizontalToleranceM
+		bounds := navigation.Bounds{
+			Min: navigation.Point{
+				NorthM: m.Assignment.Area.Min.NorthM - launch.NorthM + margin,
+				EastM:  m.Assignment.Area.Min.EastM - launch.EastM + margin,
+			},
+			Max: navigation.Point{
+				NorthM: m.Assignment.Area.Max.NorthM - launch.NorthM - margin,
+				EastM:  m.Assignment.Area.Max.EastM - launch.EastM - margin,
+			},
+		}
+		navigator, err := navigation.NewDriver(
+			m.Config.Navigation,
+			bounds,
+			r.Vehicle.Sensors,
+			r.Vehicle.States,
+			r.Vehicle.Positions,
+			r.Vehicle.Velocity,
+			before.Position,
+			r.Logger,
+		)
+		if err != nil {
+			return err
+		}
+		positions = navigator
+		s.sensorSession = frame.Session
 	}
 	if err := s.refresh(); err != nil {
 		return err
@@ -124,7 +176,7 @@ func (r MissionRunner) Run(ctx context.Context) error {
 		}
 	}()
 	defer func() { stopMonitor(); <-monitorDone }()
-	err = route.RunCoordinatedRouteCheck(flightCtx, r.Vehicle.Flight, r.Vehicle.Arming, r.Vehicle.Positions,
+	err = route.RunCoordinatedRouteCheck(flightCtx, r.Vehicle.Flight, r.Vehicle.Arming, positions,
 		r.Vehicle.States, r.Logger, m.Route, s)
 	if err != nil {
 		s.mu.Lock()
@@ -155,6 +207,17 @@ func (s *missionSession) refresh() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state := s.vehicle.States.Snapshot()
+	if s.mission.Config.Navigation.Enabled {
+		frame := s.vehicle.Sensors.Snapshot()
+		if !frame.Fresh(time.Now(), s.mission.Config.Navigation.SensorMaxAge) || frame.Session != s.sensorSession ||
+			frame.SystemID != s.mission.Config.Network.SystemID {
+			s.status.Fault = "coverage lidar/sonar stream stale or restarted"
+			if frame != nil {
+				s.status.Fault = fmt.Sprintf("coverage sensor stream stale/restarted: sequence=%d age=%s",
+					frame.Sequence, time.Since(frame.ReceivedAt).Round(time.Millisecond))
+			}
+		}
+	}
 	fresh := flight.FreshState(state, s.mission.Route.Flight.TelemetryMaxAge) &&
 		state.SystemID == s.mission.Config.Network.SystemID
 	if fresh {

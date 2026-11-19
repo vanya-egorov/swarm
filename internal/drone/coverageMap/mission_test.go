@@ -2,6 +2,7 @@ package coverageMap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -11,12 +12,15 @@ import (
 	"time"
 
 	"github.com/vanya-egorov/swarm/internal/drone/coordination"
+	"github.com/vanya-egorov/swarm/internal/drone/navigation"
 	"github.com/vanya-egorov/swarm/internal/drone/route"
+	"github.com/vanya-egorov/swarm/internal/drone/sensors"
 	"github.com/vanya-egorov/swarm/internal/drone/telemetry"
 )
 
 func missionTestConfig() MissionConfig {
 	c := DefaultMissionConfig()
+	c.Navigation.Enabled = false
 	c.RunID = "coverage-integration"
 	c.Area = Area{Max: Point{NorthM: 10, EastM: 18}}
 	c.Coverage.SwathWidthM, c.Coverage.LaneSpacingM = 6, 6
@@ -88,6 +92,25 @@ func TestPrepareMissionIdentityAndValidation(t *testing.T) {
 				t.Fatal("invalid mission accepted")
 			}
 		})
+	}
+}
+
+func TestRegionsFollowLaunchPositionsInsteadOfIDOrder(t *testing.T) {
+	c := missionTestConfig()
+	c.Launches[0].Position, c.Launches[2].Position = c.Launches[2].Position, c.Launches[0].Position
+	left, err := PrepareMission(c, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := PrepareMission(c, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left.Assignment.Area.Min.EastM != 0 || right.Assignment.Area.Max.EastM != c.Area.Max.EastM {
+		t.Fatal("regions assigned by ID instead of nearest launch order")
+	}
+	if left.Config.Network.ClusterID != right.Config.Network.ClusterID {
+		t.Fatal("automatic assignments disagree between agents")
 	}
 }
 
@@ -336,5 +359,61 @@ func TestMarginPreservesCoverage(t *testing.T) {
 	config.BoundaryMarginM = 2.4
 	if _, err := GenerateRoute(Area{Max: Point{NorthM: 3, EastM: 3}}, config); err == nil {
 		t.Fatal("narrow region allowed")
+	}
+}
+
+type absentSensors struct{}
+
+func (absentSensors) Snapshot() *sensors.Frame { return nil }
+
+type unusedVelocity struct{}
+
+func (unusedVelocity) SetVelocityTarget(context.Context, float64, float64, float64) error {
+	return errors.New("velocity command before readiness")
+}
+
+func TestMissingSensorsPreventAutonomousTakeoff(t *testing.T) {
+	config := missionTestConfig()
+	config.Navigation = navigation.DefaultConfig()
+	config.Area.Max = Point{NorthM: 14, EastM: 48}
+	config.Coverage.SwathWidthM, config.Coverage.LaneSpacingM = 8, 3
+	config.Route.Flight.MaxDistanceM = 20
+	config.Route.Flight.ReadyTimeout = 50 * time.Millisecond
+	for i := range config.Launches {
+		config.Launches[i].Position = Point{NorthM: 4, EastM: 8 + float64(i)*16}
+	}
+	prepared, err := PrepareMission(config, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	position := prepared.ExpectedLaunch
+	position.RelativeAltitudeM = 0
+	f := &missionFake{id: 1, mode: telemetry.ModeStabilize, position: position}
+	bus := &missionBus{packets: map[uint8]chan coordination.Message{}, isolated: map[uint8]bool{}}
+	for id := uint8(1); id <= 3; id++ {
+		bus.packets[id] = make(chan coordination.Message, 256)
+	}
+	base := filepath.Join(t.TempDir(), "agent")
+	runner := MissionRunner{
+		Config:      config,
+		SystemID:    1,
+		Transport:   missionTransport{bus, 1},
+		Store:       coordination.FileStore{Path: base + ".json"},
+		StartMarker: base + ".flight",
+		Vehicle: Vehicle{
+			Flight:    f,
+			Arming:    f,
+			Positions: f,
+			States:    f,
+			Sensors:   absentSensors{},
+			Velocity:  unusedVelocity{},
+		},
+		Logger: slog.New(slog.DiscardHandler),
+	}
+	if err := runner.Run(context.Background()); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("wrong readiness result: %v", err)
+	}
+	if f.armed || f.landed || len(f.targets) > 0 || f.mode != telemetry.ModeStabilize {
+		t.Fatal("flight commands issued without sensors")
 	}
 }

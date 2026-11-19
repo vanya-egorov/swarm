@@ -6,6 +6,7 @@
     "Max": {"NorthM": 10, "EastM": 18}
   },
   "Coverage": {"SwathWidthM": 6, "LaneSpacingM": 6, "AltitudeM": 1.5},
+	"Navigation": {"Enabled": false},
   "Launches": [
     {"SystemID": 1, "Position": {"NorthM": 5, "EastM": 3}},
     {"SystemID": 2, "Position": {"NorthM": 5, "EastM": 9}},
