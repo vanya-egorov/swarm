@@ -88,9 +88,6 @@ func (f *routeFake) SetPositionTarget(_ context.Context, target PositionTarget) 
 	}
 	return f.sendErr
 }
-func (f *routeFake) Snapshot() State {
-	return f.Snapshot()
-}
 func routeTestConfig() RouteCheckConfig {
 	c := DefaultRouteCheckConfig()
 	c.Flight.StableDuration = 0

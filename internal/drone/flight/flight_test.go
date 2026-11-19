@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/vanya-egorov/swarm/internal/drone/telemetry"
 )
 
 type armingControllerFunc func(context.Context, bool) error
@@ -80,7 +82,7 @@ func TestArmCheckCases(t *testing.T) {
 						RelativeAltitudeM: test.altitude,
 						ReceivedAt:        now,
 					},
-					ServoOutputs: &ServoOutputs{
+					ServoOutputs: &telemetry.ServoOutputs{
 						SystemID:    1,
 						ComponentID: 1,
 						PWMUS:       [16]uint16{pwm, pwm, pwm, pwm},
@@ -143,7 +145,7 @@ func TestArmCheckGroundChange(t *testing.T) {
 		}
 		return State{SystemID: 1, ComponentID: 1, Mode: ModeStabilize, LastHeartbeat: now,
 			Position: &Position{SystemID: 1, ComponentID: 1, RelativeAltitudeM: altitude, ReceivedAt: now},
-			ServoOutputs: &ServoOutputs{
+			ServoOutputs: &telemetry.ServoOutputs{
 				SystemID:    1,
 				ComponentID: 1,
 				PWMUS:       [16]uint16{1000, 1000, 1000, 1000},
@@ -220,7 +222,7 @@ func (f *flightCheckFake) Snapshot() State {
 	now := time.Now()
 	return State{SystemID: 1, ComponentID: 1, Armed: f.armed, Mode: f.mode, LastHeartbeat: now,
 		Position: &Position{SystemID: 1, ComponentID: 1, RelativeAltitudeM: f.altitude, ReceivedAt: now},
-		ServoOutputs: &ServoOutputs{
+		ServoOutputs: &telemetry.ServoOutputs{
 			SystemID:    1,
 			ComponentID: 1,
 			PWMUS:       [16]uint16{1000, 1000, 1000, 1000},

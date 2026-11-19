@@ -260,7 +260,8 @@ func TestGroupRouteFailuresLandEveryone(t *testing.T) {
 					}
 				}()
 			}
-			err := RunGroupRouteCheck(ctx, members, slog.New(slog.DiscardHandler), groupRouteTestConfig(), 4)
+			config := groupRouteTestConfig()
+			err := RunGroupRouteCheck(ctx, members, slog.New(slog.DiscardHandler), config, 4)
 			if (err == nil) != (name == "success") {
 				t.Fatalf("%s: %v", name, err)
 			}
@@ -278,7 +279,7 @@ func TestGroupRouteFailuresLandEveryone(t *testing.T) {
 				if s.Armed || s.Position.RelativeAltitudeM != 0 {
 					t.Fatalf("vehicle %d not landed", f.id)
 				}
-				if name == "success" && len(f.targets) != 3 {
+				if name == "success" && len(f.targets) != len(config.Waypoints)+1 {
 					t.Fatalf("vehicle %d targets: %v", f.id, f.targets)
 				}
 			}
