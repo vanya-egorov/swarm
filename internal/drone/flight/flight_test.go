@@ -215,6 +215,7 @@ type flightCheckFake struct {
 	calls      []string
 	takeoffErr error
 	overshoot  bool
+	landErrors []error
 }
 
 // Snapshot возвращает свежий снимок тестового аппарата.
@@ -263,8 +264,31 @@ func (f *flightCheckFake) Takeoff(_ context.Context, altitude float64) error {
 // Land имитирует штатную посадку с автоматическим разоружением.
 func (f *flightCheckFake) Land(context.Context) error {
 	f.calls = append(f.calls, "land")
+	if len(f.landErrors) > 0 {
+		err := f.landErrors[0]
+		f.landErrors = f.landErrors[1:]
+		if err != nil {
+			return err
+		}
+	}
 	f.mode, f.altitude, f.armed = ModeLand, 0, false
 	return nil
+}
+
+func TestLandingRetriesAfterLinkRecovery(t *testing.T) {
+	t.Parallel()
+	fake := &flightCheckFake{mode: ModeGuided, armed: true, altitude: 1.5,
+		landErrors: []error{telemetry.ErrHeartbeatTimeout}}
+	config := DefaultFlightCheckConfig()
+	config.LandingTimeout = 2 * time.Second
+	before := fake.Snapshot()
+	if err := LandAndConfirm(context.Background(), fake, fake, fake, before, config,
+		slog.New(slog.DiscardHandler)); err != nil {
+		t.Fatal(err)
+	}
+	if fake.armed || !reflect.DeepEqual(fake.calls, []string{"land", "land"}) {
+		t.Fatalf("landing did not recover: armed=%t commands=%v", fake.armed, fake.calls)
+	}
 }
 
 func TestFlightCheckCases(t *testing.T) {

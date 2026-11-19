@@ -1,0 +1,259 @@
+{
+  "date": "2026-11-19",
+  "world": "projectData/run/webots/worlds/village.wbt",
+  "profile": {
+    "RunID": "village-1795118303362542000",
+    "Origin": {
+      "LatitudeDeg": -35.363261,
+      "LongitudeDeg": 149.165237
+    },
+    "Area": {
+      "Min": {
+        "NorthM": 219.0,
+        "EastM": -296.0
+      },
+      "Max": {
+        "NorthM": 255.0,
+        "EastM": -284.0
+      }
+    },
+    "Coverage": {
+      "SwathWidthM": 8,
+      "LaneSpacingM": 4,
+      "AltitudeM": 1.5,
+      "Direction": 1
+    },
+    "Navigation": {
+      "Enabled": true,
+      "SensorMaxAge": 500000000,
+      "MaxSpeedMS": 0.4
+    },
+    "Launches": [
+      {
+        "SystemID": 1,
+        "Position": {
+          "NorthM": 225.0,
+          "EastM": -290.0
+        }
+      },
+      {
+        "SystemID": 2,
+        "Position": {
+          "NorthM": 237.0,
+          "EastM": -290.0
+        }
+      },
+      {
+        "SystemID": 3,
+        "Position": {
+          "NorthM": 249.0,
+          "EastM": -290.0
+        }
+      }
+    ],
+    "Network": {
+      "Peers": [
+        {
+          "SystemID": 1,
+          "Address": "127.0.0.1:14601"
+        },
+        {
+          "SystemID": 2,
+          "Address": "127.0.0.1:14602"
+        },
+        {
+          "SystemID": 3,
+          "Address": "127.0.0.1:14603"
+        }
+      ]
+    }
+  },
+  "runs": [
+    {
+      "runID": "village-1795118303362542000",
+      "exitCodes": [
+        0,
+        0,
+        0
+      ],
+      "failedLeader": null,
+      "physics": {
+        "samples": 51345,
+        "airborneContacts": {
+          "1": 0,
+          "2": 0,
+          "3": 0
+        },
+        "outsideRegion": {
+          "1": 0,
+          "2": 0,
+          "3": 0
+        },
+        "minSeparationM": 11.970424892082018,
+        "maxHeightM": {
+          "1": 1.506188356565696,
+          "2": 1.5002796699936258,
+          "3": 1.504475689493196
+        }
+      },
+      "replacementLeader": null,
+      "accepted": true,
+      "agents": [
+        {
+          "systemID": 1,
+          "plannedWaypoints": 6,
+          "reachedWaypoints": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "landingConfirmed": true,
+          "stopped": {
+            "time": "2026-11-19T23:00:59.104416+03:00",
+            "level": "INFO",
+            "msg": "stopped"
+          },
+          "logSHA256": "ddc072e25b3ce951b7c75075ef25c78a2a29f40cb04b32a5aa9fa4092324c6f8"
+        },
+        {
+          "systemID": 2,
+          "plannedWaypoints": 6,
+          "reachedWaypoints": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "landingConfirmed": true,
+          "stopped": {
+            "time": "2026-11-19T23:00:59.104377+03:00",
+            "level": "INFO",
+            "msg": "stopped"
+          },
+          "logSHA256": "bc14e717dd62b8ecc7261301aac094b07c791b98be4e5cad14a1f97d19205a14"
+        },
+        {
+          "systemID": 3,
+          "plannedWaypoints": 6,
+          "reachedWaypoints": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "landingConfirmed": true,
+          "stopped": {
+            "time": "2026-11-19T23:00:59.104484+03:00",
+            "level": "INFO",
+            "msg": "stopped"
+          },
+          "logSHA256": "ea37af79577555396bcfa17dfae5f1986e57e8cc1717853419396f0a3b281380"
+        }
+      ],
+      "evidenceSHA256": {
+        "mission.json": "db98a2d1b9d110b52405fe18379d4688a52f94780a8015caa2446c4bd41fbcf6",
+        "sensor-preflight.json": "9ffbbb9f785297c56c7f8ddc1e746aa6274fcd0bf4ba4b501be284812402168d",
+        "physics.jsonl": "524e5529bf12e075bf9d7900d08307c385296e7e57b771b2b07ce19ed46e5408",
+        "physics-summary.json": "432e37c82e71d56fea9401956ffd82b589effc1186d9070d82ae8a4ee0a02077"
+      }
+    },
+    {
+      "runID": "village-1795118480469342000",
+      "exitCodes": [
+        1,
+        1,
+        1
+      ],
+      "failedLeader": 2,
+      "physics": {
+        "samples": 50333,
+        "airborneContacts": {
+          "1": 0,
+          "2": 0,
+          "3": 0
+        },
+        "outsideRegion": {
+          "1": 0,
+          "2": 0,
+          "3": 0
+        },
+        "minSeparationM": 8.903326263126278,
+        "maxHeightM": {
+          "1": 1.5051714433285106,
+          "2": 1.5008494682508147,
+          "3": 1.5033156365861924
+        }
+      },
+      "replacementLeader": 3,
+      "accepted": true,
+      "agents": [
+        {
+          "systemID": 1,
+          "plannedWaypoints": 6,
+          "reachedWaypoints": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "landingConfirmed": true,
+          "stopped": {
+            "time": "2026-11-19T23:03:55.656863+03:00",
+            "level": "ERROR",
+            "msg": "stopped",
+            "error": "coverage incomplete: unavailable vehicles [2]"
+          },
+          "logSHA256": "f89f5c766193ab281d6c2ede9b807868124590606a4ca137048aa4e61b8f7279"
+        },
+        {
+          "systemID": 2,
+          "plannedWaypoints": 6,
+          "reachedWaypoints": [],
+          "landingConfirmed": true,
+          "stopped": {
+            "time": "2026-11-19T23:02:33.483611+03:00",
+            "level": "ERROR",
+            "msg": "stopped",
+            "error": "route: waypoint 1: telemetry stale or vehicle changed\ncoverage telemetry stale or identity changed"
+          },
+          "logSHA256": "2aeb5961f37c8568fc78ea2386de8977b13b885ca7f94ad7324682ac5e32b462"
+        },
+        {
+          "systemID": 3,
+          "plannedWaypoints": 6,
+          "reachedWaypoints": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "landingConfirmed": true,
+          "stopped": {
+            "time": "2026-11-19T23:03:55.75615+03:00",
+            "level": "ERROR",
+            "msg": "stopped",
+            "error": "coverage incomplete: unavailable vehicles [2]"
+          },
+          "logSHA256": "1ab5fdc793088d29c739ef3733f8ab5f1e1e9d3b6a72f6dd5141cb0580884e59"
+        }
+      ],
+      "evidenceSHA256": {
+        "mission.json": "f0730706ec233ba17510f1ab1d9845e9629e7686e24631d40a866f0398aed4ca",
+        "sensor-preflight.json": "851c48a566d7a8f1cffd21c3293d8b15e4e72da100e3110c865b172a80d87826",
+        "physics.jsonl": "6ed5114e46f2a8472df131f7665a4dce42095f6cc396512039071a6c82821e54",
+        "physics-summary.json": "98574c62628bed185f78c837d96840a8d368bc0b030a9a35ce1e1520a963a609"
+      }
+    }
+  ]
+}

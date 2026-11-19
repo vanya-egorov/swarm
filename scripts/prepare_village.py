@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from village.geometry import convert_model
+from village.coverage import prepare
 from village.scene import include_instance, read_scene
 from village.spawn import choose_start
 from village.terrain import read_terrain
@@ -68,6 +69,8 @@ def main():
         "flightParametersSHA256": hashlib.sha256(parameters.read_bytes()).hexdigest(),
     }
     (output / "village-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+"\n")
+    launches = prepare(output / "worlds/village.wbt", output / "coverage-mission.json")
+    print(f"Сухие старты покрытия: {launches['startsWebots']}")
     for result in worlds:
         print(f"Мир: {result['world']} ({result['instances']} объектов)")
     print("Откройте village.wbt в Webots; включите моделирование, затем make village-route-check.")

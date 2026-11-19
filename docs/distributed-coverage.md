@@ -28,6 +28,13 @@ go run ./cmd/swarm --coverage-mission configs/coverage-example.json --system-id 
 Одинаковый отпечаток задания включает состав группы, адреса, карту, старты,
 параметры маршрутов и тайм-ауты. Пакеты другого запуска игнорируются.
 
+Для основного `village.wbt` есть воспроизводимое физическое испытание:
+
+```sh
+make village-coverage-prepare
+make village-coverage-check
+make village-coverage-failover
+```
 `Network.Peers` задаёт фиксированный состав: уникальные system ID и конкретные
 IP:port. На разных машинах замените loopback-адреса доступными адресами агентов;
 каждый агент привязывает сокет к собственному адресу. Автопилот каждого агента

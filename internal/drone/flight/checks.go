@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/vanya-egorov/swarm/internal/drone/telemetry"
 )
 
 // ArmCheckConfig ограничивает ожидание телеметрии и время работы вооружённого SITL.
@@ -286,6 +288,7 @@ func LandAndConfirm(
 		return nil
 	}
 	landErr := RunCommand(ctx, config.CommandTimeout, flight.Land)
+	lastLandAttempt := time.Now()
 	if landErr != nil {
 		logger.Warn("LAND unconfirmed", "systemId", before.SystemID, "error", landErr)
 	}
@@ -305,6 +308,16 @@ func LandAndConfirm(
 			if !state.Armed && landedOnGround(state.Position) {
 				logger.Info("landed", "systemId", before.SystemID, "altitudeM", state.Position.RelativeAltitudeM)
 				return nil
+			}
+			// После восстановления связи первая LAND могла опередить свежий heartbeat.
+			// Повтор разрешён только для того же аппарата и ограничен контекстом посадки.
+			if state.Armed && state.Mode != ModeLand && retryLanding(landErr) &&
+				time.Since(lastLandAttempt) >= time.Second {
+				landErr = RunCommand(landingCtx, config.CommandTimeout, flight.Land)
+				lastLandAttempt = time.Now()
+				if landErr != nil {
+					logger.Warn("LAND retry unconfirmed", "systemId", before.SystemID, "error", landErr)
+				}
 			}
 			if state.Armed && landedOnGround(state.Position) {
 				if groundSince.IsZero() {
@@ -330,6 +343,11 @@ func LandAndConfirm(
 		case <-ticker.C:
 		}
 	}
+}
+
+func retryLanding(err error) bool {
+	return errors.Is(err, telemetry.ErrHeartbeatTimeout) || errors.Is(err, ErrCommandLinkChanged) ||
+		errors.Is(err, ErrCommandTimeout) || errors.Is(err, ErrCommandBusy)
 }
 
 // landedOnGround подтверждает почти нулевую высоту и малые скорости перед disarm.

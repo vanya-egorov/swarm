@@ -1,4 +1,4 @@
-// Package geo contains coordinate checks and distance calculations for drone positions.
+// Package coordinates contains coordinate checks and distance calculations for drone positions.
 package coordinates
 
 import (
@@ -7,7 +7,8 @@ import (
 	"github.com/vanya-egorov/swarm/internal/drone/telemetry"
 )
 
-const MetersPerDegree = 111195.0
+// MetersPerDegree matches ArduPilot's LATLON_TO_M for the shared SITL/Webots map.
+const MetersPerDegree = 111318.84502145034
 
 // ValidPosition reports whether a position contains finite, in-range coordinates and velocities.
 func ValidPosition(p *telemetry.Position) bool {

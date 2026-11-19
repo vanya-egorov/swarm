@@ -1,0 +1,4 @@
+UnityPy==1.25.4
+assimp-py==1.2.0
+numpy==2.5.4
+Pillow==13.0.0

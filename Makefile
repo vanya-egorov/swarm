@@ -36,6 +36,15 @@ village-sensors:
 village-validate:
 	@python3 sim/webots/configure_sensors.py --check
 
+village-coverage-prepare:
+	@$(VILLAGE_PYTHON) scripts/prepare_village_coverage.py
+
+village-coverage-check: build
+	@python3 scripts/coverage_check.py
+
+village-coverage-failover: build
+	@python3 scripts/coverage_check.py --failover
+
 village-route-check: build
 	@DRONE_COUNT=3 ARM_CHECK_PARAMS="$${RUN_DIR:-projectData/run}/webots/village-flight.parm" bash scripts/devstack.sh group-route-check
 
