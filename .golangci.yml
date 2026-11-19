@@ -5,6 +5,13 @@ run:
 
 linters:
   default: standard
+  exclusions:
+    rules:
+      # Имя нового пакета coverageMap задано в требованиях задачи.
+      - path: internal/drone/coverageMap/
+        linters:
+          - revive
+        text: "don't use MixedCaps in package names; coverageMap"
   enable:
     - asciicheck
     - bidichk
